@@ -346,8 +346,8 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
             print ("Blocked state ", blocked_state)
 
         # Update map
-        if not stationary_run:
-            updateMap(blocked_state)
+        # if not stationary_run:
+            # updateMap(blocked_state)
 
         # Check for objects
         object_detector.process_frame()
