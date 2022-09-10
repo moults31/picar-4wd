@@ -339,48 +339,40 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
         object_detector.process_frame(detected_objects)
 
     # Calculate the period for object detector frame processing,
-    # to achieve the target FPS. If we process a frame on every iteration
-    # of the main loop, we will starve the main thread
-    NS_TO_SEC = 1000000000
-    obj_det_period = 1 / object_detector.target_fps * NS_TO_SEC
+    # to achieve the target FPS. If we run at the maximum possible FPS
+    # (Around 6 or 7) the main thread will be cpu-starved
+    obj_det_period = 1 / object_detector.target_fps
 
-    # Create thread tracker with given period
-    thread_tracker = lab1part2_object_detector.Thread_tracker(obj_det_period)
 
-    # Start loop to perform scan and take respective actions
-    while True:
-        # Act based on detected objects.
-        # Performed at the start of the loop because we should still act
-        # if the previous iteration got "continued"
-        # Note: could this be pulled into a helper function, or merged with decide_on_action?
-        print(detected_objects)
-        if 'stop sign' in detected_objects:
-                fc.stop
-                break
-
-        # Create object detection thread but don't start it yet.
-        # Note we have to recreate this every iteration; 
-        # threads can't be reused or restarted
+    # Wrap main loop in try block so we can safely close
+    # object detection thread if we hit an exception
+    try:
+        # Create and start the object detection child thread
         obj_det_thread = Thread(
-            target=object_detector.process_frame,
-            args=(detected_objects, obj_det_thresh,)
+            target=object_detector.run_periodic_blocking,
+            args=(obj_det_period, detected_objects, obj_det_thresh,)
         )
+        obj_det_thread.start()
 
-        # Wrap main loop in try block so we can safely close
-        # object detection thread if we hit an exception
-        try:
-            # Start the object detection thread if the period has elapsed
-            thread_tracker.maybe_start_thread(obj_det_thread)
+        # Start main loop to perform scan and take respective actions
+        while True:
+            # Act based on detected objects.
+            # Performed at the start of the loop because we should still act
+            # if the previous iteration got "continued"
+            # Note 1: could this be pulled into a helper function, or merged with decide_on_action?
+            # Note 2: could this be pulled into a helper function, or merged with decide_on_action?
+            print(detected_objects)
+            if 'stop sign' in detected_objects:
+                    fc.stop
+                    break
 
             # Get ultrasonic scan input 
             scan_list = fc.scan_step(35)
             print(scan_list)
             if not scan_list:
-                thread_tracker.maybe_stop_thread(obj_det_thread)
                 continue
             # Wait for full scan to be received from the sensor
             if len(scan_list) != 10:
-                thread_tracker.maybe_stop_thread(obj_det_thread)
                 continue
 
             # Check for obstacles
@@ -393,25 +385,22 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
                 # updateMap(blocked_state)
 
             # Check for objects
-            thread_tracker.maybe_stop_thread(obj_det_thread)
             obj_det_running = False
 
-        except BaseException as e:
-            print("Hit exception. Stopping object detection thread and waiting for it to exit.")
-            if obj_det_thread.is_alive():
-                obj_det_thread.join()
-            print("Object detection thread closed safely.")
-            raise(e)
+            #Decide on actions based on obstacles and current driving direction
+            if not stationary_run:
+                # print("Car position ", car_position)
+                decide_on_action(blocked_state)
 
-        #Decide on actions based on obstacles and current driving direction
-        if not stationary_run:
-            # print("Car position ", car_position)
-            decide_on_action(blocked_state)
+            print(map)
+            #print(map[car_position[0]-25:car_position[0]+25, car_position[1]-25:car_position[1]+25])
+            #plt.imshow(map, interpolation='nearest')
+            #plt.show()
 
-        print(map)
-        #print(map[car_position[0]-25:car_position[0]+25, car_position[1]-25:car_position[1]+25])
-        #plt.imshow(map, interpolation='nearest')
-        #plt.show()
+    finally:
+        object_detector.should_stop = True
+        obj_det_thread.join()
+        print("Object detection thread closed safely.")
 
 
 

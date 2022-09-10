@@ -47,7 +47,7 @@ class Object_detector:
 
     # Variables to calculate FPS
     self.counter, self.fps = 0, 0
-    self.target_fps = 1.8
+    self.target_fps = 3.5
     self.start_time = time.time()
 
     # Create capture object
@@ -80,9 +80,17 @@ class Object_detector:
         base_options=base_options, detection_options=detection_options)
     self.detector = vision.ObjectDetector.create_from_options(options)
 
+    # Flag to stop run_periodic_blocking
+    self.should_stop = False
+
     # Register the cleanup method to make sure
     # that we release the capture when object exits
     atexit.register(self.cleanup)
+
+  def run_periodic_blocking(self, period, detected_objects, threshold):
+    while self.should_stop == False:
+      self.process_frame(detected_objects, threshold)
+      time.sleep(period)
 
   def process_frame(self, detected_objects, threshold=0.75):
     """
@@ -123,6 +131,7 @@ class Object_detector:
     cv2.putText(image, fps_text, text_location, cv2.FONT_HERSHEY_PLAIN,
                 self.font_size, self.text_color, self.font_thickness)
 
+    # Todo: make detected_objects thread-safe
     detected_objects.clear()
     # Build up the return list of detections
     for detection in detection_result.detections:
@@ -180,29 +189,3 @@ class Object_detector:
     self.cap.release()
     cv2.destroyAllWindows()
     print("Done")
-
-# Class to make sure we can run the object detector
-# as a child thread on a specified period, so that
-# we don't starve the main thread
-class Thread_tracker:
-  def __init__(self, period):
-    self.start_time_ns = time.time_ns()
-    self.thread_running = False
-    self.period = period
-
-  def maybe_start_thread(self, thread):
-    end_time_ns = time.time_ns()
-    is_running = False
-    if end_time_ns - self.start_time_ns > self.period:
-        # Start the thread if we've waited long enough since the previous frame
-        # If our fps gets too high it will starve the main thread
-        print("Starting thread")
-        thread.start()
-        is_running = True
-        self.start_time_ns = end_time_ns
-
-    self.is_running = is_running
-
-  def maybe_stop_thread(self, thread):
-    if self.is_running:
-        thread.join()
