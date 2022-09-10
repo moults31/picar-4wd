@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Adapted for use in UIUC CS 437 IOT under the Apache 2.0 licence
+# Object detection from raspi camera video stream adapted from Tensorflow example
+# for use in UIUC CS 437 IOT under the Apache 2.0 licence
 
 import sys
 import time
@@ -22,6 +23,7 @@ import atexit
 from tflite_support.task import core
 from tflite_support.task import processor
 from tflite_support.task import vision
+from threading import Thread
 
 class Object_detector:
   def __init__(self, model: str, camera_id: int, width: int, height: int, num_threads: int,
@@ -45,6 +47,7 @@ class Object_detector:
 
     # Variables to calculate FPS
     self.counter, self.fps = 0, 0
+    self.target_fps = 1.8
     self.start_time = time.time()
 
     # Create capture object
@@ -59,6 +62,7 @@ class Object_detector:
     self.font_size = 2
     self.font_thickness = 2
     self.fps_avg_frame_count = 10
+    self.window_name = 'object_detector'
 
     # Bounding box visualization parameters
     self._MARGIN = 10  # pixels
@@ -80,7 +84,7 @@ class Object_detector:
     # that we release the capture when object exits
     atexit.register(self.cleanup)
 
-  def process_frame(self):
+  def process_frame(self, detected_objects, threshold=0.75):
     """
     Process a single frame of the camera input stream for object
       detection. Requires that camera capture is already open.
@@ -110,26 +114,29 @@ class Object_detector:
 
     # Calculate the FPS
     if self.counter % self.fps_avg_frame_count == 0:
-      end_time = time.time()
-      self.fps = self.fps_avg_frame_count / (end_time - self.start_time)
-      self.start_time = time.time()
+      self.compute_fps()
 
     # Show the FPS
     fps_text = 'FPS = {:.1f}'.format(self.fps)
+    print(fps_text)
     text_location = (self.left_margin, self.row_size)
     cv2.putText(image, fps_text, text_location, cv2.FONT_HERSHEY_PLAIN,
                 self.font_size, self.text_color, self.font_thickness)
 
-    cv2.imshow('object_detector', image)
-    cv2.waitKey(1)
+    detected_objects.clear()
+    # Build up the return list of detections
+    for detection in detection_result.detections:
+      category = detection.categories[0]
+      category_name = category.category_name
+      probability = round(category.score, 2)
 
-  def process_stream_blocking(self):
-    """
-    Process the video input stream in a blocking loop, forever.
-      Relies on destroying the object for exiting and safe cleanup.
-    """
-    while True:
-      self.process_frame()
+      if probability >= threshold:
+        detected_objects.append(category_name)
+      else:
+        break
+
+    cv2.imshow(self.window_name, image)
+    cv2.waitKey(1)
 
   def draw_bounding_box(
       self, image: np.ndarray,
@@ -163,6 +170,39 @@ class Object_detector:
 
     return image
 
+  def compute_fps(self):
+    end_time = time.time()
+    self.fps = self.fps_avg_frame_count / (end_time - self.start_time)
+    self.start_time = time.time()
+
   def cleanup(self):
+    print("Safely closing camera capture...")
     self.cap.release()
     cv2.destroyAllWindows()
+    print("Done")
+
+# Class to make sure we can run the object detector
+# as a child thread on a specified period, so that
+# we don't starve the main thread
+class Thread_tracker:
+  def __init__(self, period):
+    self.start_time_ns = time.time_ns()
+    self.thread_running = False
+    self.period = period
+
+  def maybe_start_thread(self, thread):
+    end_time_ns = time.time_ns()
+    is_running = False
+    if end_time_ns - self.start_time_ns > self.period:
+        # Start the thread if we've waited long enough since the previous frame
+        # If our fps gets too high it will starve the main thread
+        print("Starting thread")
+        thread.start()
+        is_running = True
+        self.start_time_ns = end_time_ns
+
+    self.is_running = is_running
+
+  def maybe_stop_thread(self, thread):
+    if self.is_running:
+        thread.join()

@@ -5,6 +5,7 @@ import sys
 import math
 import argparse
 from enum import Enum
+from threading import Thread
 
 # User modules
 import lab1part2_object_detector
@@ -20,7 +21,7 @@ class DrivingDirection (Enum):
 # Globals
 
 # Set speed of car
-speed = 20
+speed = 1
 
 # Set starting direction of car as toward destination
 direction = DrivingDirection.towards_destination
@@ -307,10 +308,8 @@ def updateMap(blocked_state):
             if map[car_position[0], car_position[1]-1] != 1:
                 map[car_position[0], car_position[1]-1] = 0
 
-                
-
 def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
-        enable_edgetpu: bool, stationary_run: bool) -> None:
+        enable_edgetpu: bool, stationary_run: bool, obj_det_thresh: float) -> None:
 
     print("Sys max size ", sys.maxsize)
     np.set_printoptions(threshold=sys.maxsize)
@@ -323,21 +322,65 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
         'right': False
     }
 
+    # Create object detector object which will allow us to process
+    # video frames one at a time
     object_detector = lab1part2_object_detector.Object_detector(
         model, camera_id, width, height,
         num_threads, enable_edgetpu
     )
 
+    # List of strings for names of objects detected in camera stream
+    detected_objects = []
+
+    # Process some frames on the main thread before entering main loop
+    # to make sure the video window is up and running before the car starts moving
+    WARMUP_FRAMES = 20
+    for frame in range(WARMUP_FRAMES):
+        object_detector.process_frame(detected_objects)
+
+    # Calculate the period for object detector frame processing,
+    # to achieve the target FPS. If we process a frame on every iteration
+    # of the main loop, we will starve the main thread
+    NS_TO_SEC = 1000000000
+    obj_det_period = 1 / object_detector.target_fps * NS_TO_SEC
+
+    # Create thread tracker with given period
+    thread_tracker = lab1part2_object_detector.Thread_tracker(obj_det_period)
+
     # Start loop to perform scan and take respective actions
     while True:
-        # Get ultrasonic scan input 
-        if not stationary_run:
+        # Act based on detected objects.
+        # Performed at the start of the loop because we should still act
+        # if the previous iteration got "continued"
+        # Note: could this be pulled into a helper function, or merged with decide_on_action?
+        print(detected_objects)
+        if 'stop sign' in detected_objects:
+                fc.stop
+                break
+
+        # Create object detection thread but don't start it yet.
+        # Note we have to recreate this every iteration; 
+        # threads can't be reused or restarted
+        obj_det_thread = Thread(
+            target=object_detector.process_frame,
+            args=(detected_objects, obj_det_thresh,)
+        )
+
+        # Wrap main loop in try block so we can safely close
+        # object detection thread if we hit an exception
+        try:
+            # Start the object detection thread if the period has elapsed
+            thread_tracker.maybe_start_thread(obj_det_thread)
+
+            # Get ultrasonic scan input 
             scan_list = fc.scan_step(35)
             print(scan_list)
             if not scan_list:
+                thread_tracker.maybe_stop_thread(obj_det_thread)
                 continue
             # Wait for full scan to be received from the sensor
             if len(scan_list) != 10:
+                thread_tracker.maybe_stop_thread(obj_det_thread)
                 continue
 
             # Check for obstacles
@@ -345,12 +388,20 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
             print(scan_list)
             print ("Blocked state ", blocked_state)
 
-        # Update map
-        # if not stationary_run:
-            # updateMap(blocked_state)
+            # Update map
+            # if not stationary_run:
+                # updateMap(blocked_state)
 
-        # Check for objects
-        object_detector.process_frame()
+            # Check for objects
+            thread_tracker.maybe_stop_thread(obj_det_thread)
+            obj_det_running = False
+
+        except BaseException as e:
+            print("Hit exception. Stopping object detection thread and waiting for it to exit.")
+            if obj_det_thread.is_alive():
+                obj_det_thread.join()
+            print("Object detection thread closed safely.")
+            raise(e)
 
         #Decide on actions based on obstacles and current driving direction
         if not stationary_run:
@@ -360,8 +411,7 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
         print(map)
         #print(map[car_position[0]-25:car_position[0]+25, car_position[1]-25:car_position[1]+25])
         #plt.imshow(map, interpolation='nearest')
-        #plt.show()      
-        
+        #plt.show()
 
 
 
@@ -393,7 +443,7 @@ if __name__ == "__main__":
         help='Number of CPU threads to run the model.',
         required=False,
         type=int,
-        default=4)
+        default=1)
     parser.add_argument(
         '--enableEdgeTPU',
         help='Whether to run the model on EdgeTPU.',
@@ -406,12 +456,20 @@ if __name__ == "__main__":
         action='store_true',
         required=False,
         default=False)
+    parser.add_argument(
+        '--detectThresh',
+        help='Threshold for object detection, int, out of 100',
+        required=False,
+        type=int,
+        default=50)
     args = parser.parse_args()
 
     print("If you want to quit.Please press q")
 
     try: 
-        main(args.model, int(args.cameraId), args.frameWidth, args.frameHeight,
-            int(args.numThreads), bool(args.enableEdgeTPU), bool(args.stationary_run))
+        main(
+            args.model, int(args.cameraId), args.frameWidth, args.frameHeight, int(args.numThreads),
+            bool(args.enableEdgeTPU), bool(args.stationary_run), float(args.detectThresh/100.0)
+        )
     finally: 
         fc.stop()
