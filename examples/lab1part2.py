@@ -4,8 +4,8 @@ import numpy as np
 import sys
 import math
 import argparse
+import multiprocessing as mp
 from enum import Enum
-from threading import Thread
 
 # User modules
 import lab1part2_object_detector
@@ -322,85 +322,81 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
         'right': False
     }
 
-    # Create object detector object which will allow us to process
-    # video frames one at a time
-    object_detector = lab1part2_object_detector.Object_detector(
-        model, camera_id, width, height,
-        num_threads, enable_edgetpu
-    )
-
-    # List of strings for names of objects detected in camera stream
-    detected_objects = []
-
-    # Process some frames on the main thread before entering main loop
-    # to make sure the video window is up and running before the car starts moving
-    WARMUP_FRAMES = 20
-    for frame in range(WARMUP_FRAMES):
-        object_detector.process_frame(detected_objects)
-
-    # Calculate the period for object detector frame processing,
-    # to achieve the target FPS. If we run at the maximum possible FPS
-    # (Around 6 or 7) the main thread will be cpu-starved
-    obj_det_period = 1 / object_detector.target_fps
-
-
-    # Wrap main loop in try block so we can safely close
-    # object detection thread if we hit an exception
-    try:
-        # Create and start the object detection child thread
-        obj_det_thread = Thread(
-            target=object_detector.run_periodic_blocking,
-            args=(obj_det_period, detected_objects, obj_det_thresh,)
+    # Use multiprocessing manager to allow shared list between processes
+    with mp.Manager() as manager:
+        # Create object detector object which will allow us to process
+        # video frames one at a time
+        object_detector = lab1part2_object_detector.Object_detector(
+            model, camera_id, width, height,
+            num_threads, enable_edgetpu
         )
-        obj_det_thread.start()
 
-        # Start main loop to perform scan and take respective actions
-        while True:
-            # Act based on detected objects.
-            # Performed at the start of the loop because we should still act
-            # if the previous iteration got "continued"
-            # Note 1: could this be pulled into a helper function, or merged with decide_on_action?
-            # Note 2: could this be pulled into a helper function, or merged with decide_on_action?
-            print(detected_objects)
-            if 'stop sign' in detected_objects:
-                    fc.stop
+        # List of strings for names of objects detected in camera stream
+        detected_objects = manager.list()
+
+
+        # Wrap main loop in try block so we can safely close
+        # object detection thread if we hit an exception
+        try:
+            # Create and start the object detection child thread
+            obj_det_proc = mp.Process(
+                target=object_detector.run_blocking,
+                args=(detected_objects, obj_det_thresh,)
+            )
+            obj_det_proc.start()
+
+            # Wait a bit to make sure the video window is up and running before the car starts moving
+            OBJ_DET_WARMUP_TIME_SEC = 5
+            time.sleep(OBJ_DET_WARMUP_TIME_SEC)
+
+            # Start main loop to perform scan and take respective actions
+            while True:
+                # Act based on detected objects.
+                # Performed at the start of the loop because we should still act
+                # if the previous iteration got "continued"
+                # Note 1: could this be pulled into a helper function, or merged with decide_on_action?
+                # Note 2: could this be pulled into a helper function, or merged with decide_on_action?
+                print(detected_objects)
+                if 'stop sign' in detected_objects:
+                    fc.stop()
                     break
 
-            # Get ultrasonic scan input 
-            scan_list = fc.scan_step(35)
-            print(scan_list)
-            if not scan_list:
-                continue
-            # Wait for full scan to be received from the sensor
-            if len(scan_list) != 10:
-                continue
+                # Get ultrasonic scan input 
+                scan_list = fc.scan_step(35)
+                print(scan_list)
+                if not scan_list:
+                    continue
+                # Wait for full scan to be received from the sensor
+                if len(scan_list) != 10:
+                    continue
 
-            # Check for obstacles
-            blocked_state = check_scan(scan_list, blocked_state)
-            print(scan_list)
-            print ("Blocked state ", blocked_state)
+                # Check for obstacles
+                blocked_state = check_scan(scan_list, blocked_state)
+                print(scan_list)
+                print ("Blocked state ", blocked_state)
 
-            # Update map
-            # if not stationary_run:
-                # updateMap(blocked_state)
+                # Update map
+                # if not stationary_run:
+                    # updateMap(blocked_state)
 
-            # Check for objects
-            obj_det_running = False
+                # Check for objects
+                obj_det_running = False
 
-            #Decide on actions based on obstacles and current driving direction
-            if not stationary_run:
-                # print("Car position ", car_position)
-                decide_on_action(blocked_state)
+                #Decide on actions based on obstacles and current driving direction
+                if not stationary_run:
+                    # print("Car position ", car_position)
+                    decide_on_action(blocked_state)
 
-            print(map)
-            #print(map[car_position[0]-25:car_position[0]+25, car_position[1]-25:car_position[1]+25])
-            #plt.imshow(map, interpolation='nearest')
-            #plt.show()
+                print(map)
+                #print(map[car_position[0]-25:car_position[0]+25, car_position[1]-25:car_position[1]+25])
+                #plt.imshow(map, interpolation='nearest')
+                #plt.show()
 
-    finally:
-        object_detector.should_stop = True
-        obj_det_thread.join()
-        print("Object detection thread closed safely.")
+        finally:
+            object_detector.should_stop = True
+            obj_det_proc.terminate()
+            obj_det_proc.join()
+            print("Object detection process closed safely.")
 
 
 
