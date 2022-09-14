@@ -48,7 +48,6 @@ class Object_detector:
 
     # Variables to calculate FPS
     self.counter, self.fps = 0, 0
-    self.target_fps = 3.5
     self.start_time = time.time()
 
     # Stream visualization parameters
@@ -140,7 +139,6 @@ class Object_detector:
 
     # Show the FPS
     fps_text = 'FPS = {:.1f}'.format(self.fps)
-    print(fps_text)
     text_location = (self.left_margin, self.row_size)
     cv2.putText(image, fps_text, text_location, cv2.FONT_HERSHEY_PLAIN,
                 self.font_size, self.text_color, self.font_thickness)
