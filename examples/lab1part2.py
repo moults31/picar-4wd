@@ -43,7 +43,7 @@ driver = None
 
 # Initialise array representing 20 * 20 occupancy squares of approx 20cm
 # when 7 represents unmapped areas, 0 represents clear and 1 represents obstacle
-array_shape = (25, 25)
+array_shape = (50, 50)
 fill_value = 7
 map = np.full(array_shape, fill_value)
 
@@ -51,7 +51,9 @@ map = np.full(array_shape, fill_value)
 car_position = [24, 10]
 
 def route_map(route):
-    route_map = np.full((25, 25), 7)
+    global array_shape
+    global fill_value
+    route_map = np.full(array_shape, fill_value)
     for i in (range(0,len(route))):
         x = route[i][0]
         y = route[i][1]
@@ -122,8 +124,8 @@ def turn(turning_direction):
         turn_left_timer = 1
         turn_right_timer = 1
     elif driver == 'Zac':
-        turn_left_timer = 2.25
-        turn_right_timer = 1.45
+        turn_left_timer = 2.05
+        turn_right_timer = 1.35
     else:
         turn_left_timer = 1
         turn_right_timer = 1
@@ -131,12 +133,10 @@ def turn(turning_direction):
     # Execute turn in direction received in function call and wait for specific time
     # before stopping
     if turning_direction == 'right':
-        print(f"turning right {turn_right_timer}")
         fc.turn_right(speed)
         time.sleep(turn_right_timer)
 
     else:
-        print(f"turning left {turn_left_timer}")
         fc.turn_left(speed)
         time.sleep(turn_left_timer)
 
@@ -201,7 +201,6 @@ def check_scan(scan_list, blocked_state):
 # Decide on the action based on the blocked state and the direction of the car
 # in relation to the destination
 def decide_on_action(blocked_state, route, new_car_position):
-    print("Car position ", new_car_position)
     # Use global variable
     global direction
 
@@ -916,13 +915,20 @@ def updateMap(blocked_state):
 
 def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
         enable_edgetpu: bool, stationary_run: bool,
-        obj_det_thresh: float, _driver: str) -> None:
+        obj_det_thresh: float, _driver: str, 
+        destX: int, destY: int, startX: int, startY: int) -> None:
 
     print("Sys max size ", sys.maxsize)
     np.set_printoptions(threshold=sys.maxsize)
 
+    # Apply driver id for car tune
     global driver
     driver = _driver
+
+    # Apply input params for starting position and destination
+    global car_position
+    car_position[:] = (startX,startY)
+    destination = (destX,destY)
 
     # Initate dictionary to hold detected obstacle location in front of car
     blocked_state = {
@@ -991,7 +997,7 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
 
                 # Update route
                 new_car_position = (car_position[0],car_position[1])
-                route = a_star_algorithm(map, new_car_position, (18,10))
+                route = a_star_algorithm(map, new_car_position, destination)
                 if len(route) == 0:
                     print("########################")
                     print("##### WE MADE IT!! #####")
@@ -1000,12 +1006,17 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
                     break
                 routemap=route_map(route)
 
+                print("____________________________________________________")
+                print(f"route (distance {len(route)}):\n{route}")
+                print(f"pos: {car_position} dest: {destination}")
+                print(f"blocked: {[direction if state else '' for direction, state in blocked_state.items()]}")
+
                 if not stationary_run:
                     decide_on_action(blocked_state,route,new_car_position)
 
+                # print(f"routemap:\n{routemap}\n")
+                # print(f"map:\n{map}\n")
                 print("____________________________________________________")
-                print(f"route (distance {len(route)}):\n{route}\n")
-                print(f"routemap:\n{routemap}\n")
 
         finally:
             # Send the stop signal to the child process and make sure it terminates
@@ -1068,6 +1079,30 @@ if __name__ == "__main__":
         required=False,
         type=str,
         default='default')
+    parser.add_argument(
+        '--destX',
+        help='X coordinate of destination',
+        required=False,
+        type=int,
+        default=18)
+    parser.add_argument(
+        '--destY',
+        help='X coordinate of destination',
+        required=False,
+        type=int,
+        default=10)
+    parser.add_argument(
+        '--startX',
+        help='X coordinate of starting position',
+        required=False,
+        type=int,
+        default=24)
+    parser.add_argument(
+        '--startY',
+        help='X coordinate of destination',
+        required=False,
+        type=int,
+        default=10)
     args = parser.parse_args()
 
     print("If you want to quit, please press q")
@@ -1076,7 +1111,8 @@ if __name__ == "__main__":
         main(
             args.model, int(args.cameraId), args.frameWidth, args.frameHeight, int(args.numThreads),
             bool(args.enableEdgeTPU), bool(args.stationary_run),
-            float(args.detectThresh/100.0), args.driver
+            float(args.detectThresh/100.0), args.driver,
+            args.destX, args.destY, args.startX, args.startY
         )
     finally:
         fc.stop()
