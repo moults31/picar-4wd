@@ -7,7 +7,11 @@ import argparse
 import multiprocessing as mp
 import heapq
 from enum import Enum
-
+import heapq
+################################################## New ################################3
+import matplotlib.pyplot as plt
+from matplotlib.pyplot import figure
+################################################## end ##############################
 # User modules
 disable_camera = False
 try:
@@ -19,7 +23,6 @@ except ModuleNotFoundError as e:
     print(e)
     disable_camera = True
 
-
 # Define enum for holding driving direction, in relation to the destination, which can be defined
 # as infinity in the direction of the starting position of the car.
 class DrivingDirection (Enum):
@@ -30,7 +33,7 @@ class DrivingDirection (Enum):
 
 # Set speed of car
 speed = 5
-
+start = (24,10)
 # Set starting direction of car as toward destination
 direction = DrivingDirection.towards_destination
 
@@ -41,15 +44,18 @@ forward_timer = 0
 # Global for storing individual car tuning
 driver = None
 
-# Initialise array representing 20 * 20 occupancy squares of approx 20cm
+# Initialise array representing 20 * 20 occupany squares of approx 20cm
 # when 7 represents unmapped areas, 0 represents clear and 1 represents obstacle
 array_shape = (50, 50)
-fill_value = 7
-map = np.full(array_shape, fill_value)
+fill_value = "*"
+map = np.full(array_shape, fill_value=1)
 
 # Intialise car location in array
 car_position = [24, 10]
-
+#################################################### NEW - ADDED LIST TO STORE COORDINATES ##########################################
+x_coords = []
+y_coords = []
+############################################################ end ############################################################
 def route_map(route):
     global array_shape
     global fill_value
@@ -57,7 +63,11 @@ def route_map(route):
     for i in (range(0,len(route))):
         x = route[i][0]
         y = route[i][1]
-        route_map[x][y]=0
+        route_map[x][y]=8
+    ############################################## NEW #############################################
+        x_coords.append(x)
+        y_coords.append(y)
+    ############################################# END #############################################
     return route_map
 
 def heuristic(a, b):
@@ -122,7 +132,7 @@ def turn(turning_direction):
         turn_right_timer = 1
     elif driver == 'Kinga':
         turn_left_timer = 1
-        turn_right_timer = 1
+        turn_right_timer = 1.07
     elif driver == 'Zac':
         turn_left_timer = 2.05
         turn_right_timer = 1.35
@@ -198,12 +208,35 @@ def check_scan(scan_list, blocked_state):
         blocked_state['right'] = False
     return blocked_state
 
+######################################################## NEW #################################################
+def print_map():
+    print("Map function")
+    fig, ax = plt.subplots(figsize=(25,25))
+
+    ax.imshow(map, cmap=plt.get_cmap('gray'))
+    ax.scatter(start[1],start[0], marker = ".", color = "yellow", s = 200)
+    ax.scatter(target[1],target[0], marker = ".", color = "blue", s = 200)
+    ax.plot(y_coords,x_coords, color = "green")
+
+    # plt.show()
+    #print(map)
+    print ("Done!")
+ #################################################### END ####################################################
+
 # Decide on the action based on the blocked state and the direction of the car
 # in relation to the destination
 def decide_on_action(blocked_state, route, new_car_position):
+    ##########################################3 NEW ##########################################
+    # if not route:
+    #     print_map()
+    #     quit()
+    ############################################ END ###########################################
+    print("Car position ", new_car_position)
+    print("Going to point", route[-1])
+
     # Use global variable
     global direction
-
+    print("Car direction", direction)
     next_point=route[-1]
     #y
     y=new_car_position[0]-next_point[0]
@@ -212,255 +245,274 @@ def decide_on_action(blocked_state, route, new_car_position):
 
     #UP
     if (direction == DrivingDirection.towards_destination) and (y == 1 and x == 0):
+        print("y1 x0")
         if blocked_state['centre']:
             if not blocked_state['left']:
                 turn('left')
                 direction = DrivingDirection.left
-                print("Turning left")
+                print("Up- Turning left y1x0")
                 move_forward()
                 return
 
             elif not blocked_state['right']:
                 turn('right')
                 direction = DrivingDirection.right
-                print("Turning right")
+                print("Up-Turning right y1x0")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Forward-Turning 180")
                 direction = DrivingDirection.away_from_destination
                 move_forward()
                 return
         else:
             move_forward()
+            print("Up - default y1x0")
             return
 
     elif (direction == DrivingDirection.towards_destination) and (y == 1 and x == -1):
+        print("y1 x-1")
         if blocked_state['centre']:
             if not blocked_state['right']:
                 turn('right')
                 direction = DrivingDirection.right
-                print("Turning right")
+                print("Forward-Turning right")
                 move_forward()
                 return
 
             elif not blocked_state['left']:
                 turn('left')
                 direction = DrivingDirection.left
-                print("Turning left")
+                print("Forward-Turning left")
                 move_forward()
                 return
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Forward-Turning 180")
                 direction = DrivingDirection.away_from_destination
                 move_forward()
                 return
         else:
             move_forward()
+            print("Up - Default y1 x-1")
             return
 
     elif (direction == DrivingDirection.towards_destination) and (y == 1 and x == 1):
+        print("y1 x1")
         if blocked_state['centre']:
             if not blocked_state['left']:
                 turn('left')
                 direction = DrivingDirection.left
-                print("Turning left")
+                print("Forward-Turning left")
                 move_forward()
                 return
 
             elif not blocked_state['right']:
                 turn('right')
                 direction = DrivingDirection.right
-                print("Turning right")
+                print("Forward-Turning right")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Forward-Turning 180")
                 direction = DrivingDirection.away_from_destination
                 move_forward()
                 return
         else:
             move_forward()
+            print("Up - y1 x1")
             return
 
     elif (direction == DrivingDirection.towards_destination) and (y == 0 and x == -1):
+        print(" Up - y0 x-1")
         if blocked_state['right']:
             if not blocked_state['centre']:
                 direction = DrivingDirection.towards_destination
                 move_forward()
+                print("Forward- forward y0x-1")
                 return
 
             elif not blocked_state['left']:
                 turn('left')
                 direction = DrivingDirection.left
-                print("Turning left")
+                print("Forward-Turning left")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Forward-Turning 180")
                 direction = DrivingDirection.away_from_destination
                 move_forward()
                 return
         else:
             turn('right')
             direction = DrivingDirection.right
-            print("Turning right")
+            print("Forward-Turning right")
             move_forward()
             return
 
     elif (direction == DrivingDirection.towards_destination) and (y == 0 and x == 1):
+        print("y0 x1")
         if blocked_state['left']:
             if not blocked_state['centre']:
                 direction = DrivingDirection.towards_destination
                 move_forward()
+                print("Up - forward y0x1")
                 return
 
             elif not blocked_state['right']:
                 turn('right')
                 direction = DrivingDirection.right
-                print("Turning right")
+                print("Up - Turning right")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Up - Turning 180")
                 direction = DrivingDirection.away_from_destination
                 move_forward()
                 return
         else:
             turn('left')
             direction = DrivingDirection.left
-            print("Turning left")
+            print("Up - Turning left")
             move_forward()
             return
 
     elif (direction == DrivingDirection.towards_destination) and (y == 0 and x == 0):
+        print("Up - return y0 x0")
         return
 
     elif (direction == DrivingDirection.towards_destination) and (y == -1 and x == 0):
+        print("Up y-1 x0")
         turn('right')
         turn('right')
-        print("Turning 180")
+        print("Up - Turning 180")
         direction = DrivingDirection.away_from_destination
         move_forward()
         return
 
     elif (direction == DrivingDirection.towards_destination) and (y == -1 and x == -1):
+        print("Up y-1 x-1")
         if blocked_state['right']:
             if not blocked_state['left']:
                 turn('left')
                 direction = DrivingDirection.left
-                print("Turning left")
+                print("Up - Turning left")
                 move_forward()
                 return
 
             elif not blocked_state['centre']:
                 direction = DrivingDirection.towards_destination
                 move_forward()
+                print("Up - forward not blocked y-1 x-1")
                 return
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Up - Turning 180")
                 direction = DrivingDirection.away_from_destination
                 move_forward()
                 return
         else:
             turn('right')
             direction = DrivingDirection.right
-            print("Turning right")
+            print("Up - Turning right")
             move_forward()
             return
 
     elif (direction == DrivingDirection.towards_destination) and (y == -1 and x == 1):
+        print("Up y-1 x1")
         if blocked_state['left']:
             if not blocked_state['right']:
                 turn('right')
                 direction = DrivingDirection.right
-                print("Turning right")
+                print("Up - Turning right")
                 move_forward()
                 return
 
             elif not blocked_state['centre']:
                 direction = DrivingDirection.towards_destination
+                print("Up - forward ")
                 move_forward()
                 return
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Up - Turning 180")
                 direction = DrivingDirection.away_from_destination
                 move_forward()
                 return
         else:
             turn('left')
             direction = DrivingDirection.left
-            print("Turning left")
+            print("Up - Turning left")
             move_forward()
             return
 
     #RIGHT
     if (direction == DrivingDirection.right) and (y == 1 and x == 0):
+        print("Right y1 x0")
         if blocked_state['left']:
             if not blocked_state['centre']:
                 direction = DrivingDirection.right
                 move_forward()
+                print("Right -forward y1x0")
                 return
 
             elif not blocked_state['right']:
                 turn('right')
                 direction = DrivingDirection.away_from_destination
-                print("Turning right")
+                print("Right - Turning right")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Right - Turning 180")
                 direction = DrivingDirection.left
                 move_forward()
                 return
         else:
             turn('left')
             direction = DrivingDirection.towards_destination
-            print("Turning left")
+            print("Right - Turning left")
             move_forward()
             return
 
     elif (direction == DrivingDirection.right) and (y == 1 and x == -1):
+        print("Right y1 x-1")
         if blocked_state['centre']:
             if not blocked_state['left']:
                 turn('left')
                 direction = DrivingDirection.towards_destination
-                print("Turning left")
+                print("Right -Turning left")
                 move_forward()
                 return
 
             elif not blocked_state['right']:
                 turn('right')
                 direction = DrivingDirection.away_from_destination
-                print("Turning right")
+                print("Right - Turning right")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Right- Turning 180")
                 direction = DrivingDirection.left
                 move_forward()
                 return
@@ -469,53 +521,56 @@ def decide_on_action(blocked_state, route, new_car_position):
             return
 
     elif (direction == DrivingDirection.right) and (y == 1 and x == 1):
+        print("Right y1 x1")
         if blocked_state['left']:
             if not blocked_state['centre']:
                 direction = DrivingDirection.right
                 move_forward()
+                print("Right - Forward y1x1")
                 return
 
             elif not blocked_state['right']:
                 turn('right')
                 direction = DrivingDirection.away_from_destination
-                print("Turning right")
+                print("Right - Turning right")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Right - Turning 180")
                 direction = DrivingDirection.left
                 move_forward()
                 return
         else:
             turn('left')
             direction = DrivingDirection.towards_destination
-            print("Turning left")
+            print("Right - Turning left")
             move_forward()
             return
 
     elif (direction == DrivingDirection.right) and (y == 0 and x == -1):
+        print("Right y0 x-1")
         if blocked_state['centre']:
             if not blocked_state['left']:
                 turn('left')
                 direction = DrivingDirection.towards_destination
-                print("Turning left")
+                print("Right - Turning left")
                 move_forward()
                 return
 
             elif not blocked_state['right']:
                 turn('right')
                 direction = DrivingDirection.away_from_destination
-                print("Turning right")
+                print("Right - Turning right")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Right - Turning 180")
                 direction = DrivingDirection.left
                 move_forward()
                 return
@@ -524,17 +579,20 @@ def decide_on_action(blocked_state, route, new_car_position):
             return
 
     elif (direction == DrivingDirection.right) and (y == 0 and x == 1):
+        print("Right y0 x1")
         turn('right')
         turn('right')
-        print("Turning 180")
+        print("Right - Turning 180")
         direction = DrivingDirection.left
         move_forward()
         return
 
     elif (direction == DrivingDirection.right) and (y == 0 and x == 0):
+        print("Right y0 x0 - return")
         return
 
     elif (direction == DrivingDirection.right) and (y == -1 and x == 0):
+        print("Right y-1 x0")
         if blocked_state['right']:
             if not blocked_state['centre']:
                 move_forward()
@@ -543,44 +601,45 @@ def decide_on_action(blocked_state, route, new_car_position):
             elif not blocked_state['left']:
                 turn('left')
                 direction = DrivingDirection.towards_destination
-                print("Turning left")
+                print("Right - Turning left")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Right - Turning 180")
                 direction = DrivingDirection.left
                 move_forward()
                 return
         else:
             turn('right')
             direction = DrivingDirection.away_from_destination
-            print("Turning right")
+            print("Right - Turning right")
             move_forward()
             return
 
     elif (direction == DrivingDirection.right) and (y == -1 and x == -1):
+        print("Right y-1 x-1")
         if blocked_state['centre']:
             if not blocked_state['right']:
                 turn('right')
                 direction = DrivingDirection.away_from_destination
-                print("Turning right")
+                print("Right - TTurning right")
                 move_forward()
                 return
 
             elif not blocked_state['left']:
                 turn('left')
                 direction = DrivingDirection.towards_destination
-                print("Turning left")
+                print("Right - TTurning left")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Right - Turning 180")
                 direction = DrivingDirection.left
                 move_forward()
                 return
@@ -589,135 +648,152 @@ def decide_on_action(blocked_state, route, new_car_position):
             return
 
     elif (direction == DrivingDirection.right) and (y == -1 and x == 1):
+        print("Right y-1 x1")
         turn('right')
         turn('right')
-        print("Turning 180")
+        print("Left -Turning 180")
         direction = DrivingDirection.left
         move_forward()
 
     #LEFT
     if (direction == DrivingDirection.left) and (y == 1 and x == 0):
+        print("Left y1 x0")
         if blocked_state['right']:
             if not blocked_state['centre']:
                 direction = DrivingDirection.left
+                print("Left -Forward y1 x0")
                 move_forward()
                 return
 
             elif not blocked_state['left']:
                 turn('left')
                 direction = DrivingDirection.away_from_destination
-                print("Turning left")
+                print("Left -Turning left y1 x0")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Left -Turning 180 y1 x0")
                 direction = DrivingDirection.right
                 move_forward()
                 return
         else:
             turn('right')
             direction = DrivingDirection.towards_destination
-            print("Turning right")
+            print("Left -Turning right y1 x0")
             move_forward()
             return
 
     elif (direction == DrivingDirection.left) and (y == 1 and x == -1):
+        print("Left y1 x-1")
         if blocked_state['right']:
             if not blocked_state['centre']:
                 direction = DrivingDirection.left
                 move_forward()
+                print("Left -Forward y1 x-1")
                 return
 
             elif not blocked_state['left']:
                 turn('left')
                 direction = DrivingDirection.away_from_destination
-                print("Turning left")
+                print("Left -Turning left y1 x-1")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Left -Turning 180 y1 x-1")
                 direction = DrivingDirection.right
                 move_forward()
                 return
         else:
             turn('right')
             direction = DrivingDirection.towards_destination
-            print("Turning right")
+            print("Left -Turning right y1 x-1")
             move_forward()
             return
 
     elif (direction == DrivingDirection.left) and (y == 1 and x == 1):
+        print("Left y1 x1")
         if blocked_state['centre']:
+            print("Left y1 x1 entered loop")
             if not blocked_state['right']:
                 turn('right')
                 direction = DrivingDirection.towards_destination
-                print("Turning right")
+                print("Left -Turning right y1 x1")
                 move_forward()
                 return
 
             elif not blocked_state['left']:
                 turn('left')
                 direction = DrivingDirection.away_from_destination
-                print("Turning left")
+                print("Left -Turning left y1 x1")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Left -Turning 180 y1 x1")
                 direction = DrivingDirection.right
                 move_forward()
                 return
         else:
+            print("Left -Default y1 x1 else loop")
             move_forward()
+            direction == DrivingDirection.left
+            print("Left -Default y1 x1")
             return
 
     elif (direction == DrivingDirection.left) and (y == 0 and x == -1):
+        print("Left y0 x-1")
+        print("Default y0 x1")
         turn('right')
         turn('right')
-        print("Turning 180")
+        print("Left -Turning 180 y0 x1")
         direction = DrivingDirection.right
         move_forward()
         return
 
     elif (direction == DrivingDirection.left) and (y == 0 and x == 1):
+        print("Left y0 x1")
         if blocked_state['centre']:
             if not blocked_state['right']:
                 turn('right')
                 direction = DrivingDirection.towards_destination
-                print("Turning right")
+                print("Left -Turning right y0x1")
                 move_forward()
                 return
 
             elif not blocked_state['left']:
                 turn('left')
                 direction = DrivingDirection.away_from_destination
-                print("Turning left")
+                print("Left -Turning left y0x1")
                 move_forward()
                 return
 
             else:
                 turn('right')
                 turn('right')
-                print("Turning 180")
+                print("Turning 180 y0x1")
                 direction = DrivingDirection.right
                 move_forward()
                 return
         else:
             move_forward()
+            print("Default y0x1")
             return
 
     elif (direction == DrivingDirection.left) and (y == 0 and x == 0):
+        print("Left y0 x0")
+        print('Route is done y0x0')
         return
 
     elif (direction == DrivingDirection.left) and (y == -1 and x == 0):
+        print("Left y-1 x0")
         if blocked_state['left']:
             if not blocked_state['centre']:
                 move_forward()
@@ -745,6 +821,7 @@ def decide_on_action(blocked_state, route, new_car_position):
             return
 
     elif (direction == DrivingDirection.left) and (y == -1 and x == -1):
+        print("Left y-1 x-1")
         if blocked_state['left']:
             if not blocked_state['centre']:
                 move_forward()
@@ -772,6 +849,7 @@ def decide_on_action(blocked_state, route, new_car_position):
             return
 
     elif (direction == DrivingDirection.left) and (y == -1 and x == 1):
+        print("Left y-1 x1")
         if blocked_state['centre']:
             if not blocked_state['right']:
                 turn('right')
@@ -797,43 +875,174 @@ def decide_on_action(blocked_state, route, new_car_position):
         else:
             move_forward()
             return
-
+################################################   NEW #####################################################################
     #DOWN
     if (direction == DrivingDirection.away_from_destination) and (y == 1 and x == 0):
-        pass
-        #tylko do góry
-    elif (direction == DrivingDirection.away_from_destination) and (y == 1 and x == -1):
-        pass
-        #do góry i w prawo
-    elif (direction == DrivingDirection.away_from_destination) and (y == 1 and x == 1):
-        pass
-        #do góry i w lewo
-    elif (direction == DrivingDirection.away_from_destination) and (y == 0 and x == -1):
-        pass
-        #tylko w prawo
-    elif (direction == DrivingDirection.away_from_destination) and (y == 0 and x == 1):
-        pass
-        #tylko w lewo
-    elif (direction == DrivingDirection.away_from_destination) and (y == 0 and x == 0):
-        pass
-        #koniec - stop
-    elif (direction == DrivingDirection.away_from_destination) and (y == -1 and x == 0):
-        pass
-        #tylko w gół
-    elif (direction == DrivingDirection.away_from_destination) and (y == -1 and x == -1):
-        pass
-        #w dół i w prawo
-    elif (direction == DrivingDirection.away_from_destination) and (y == -1 and x == 1):
-        pass
-        #w dół i lewo
+        turn('right')
+        turn('right')
+        print("Turning 180")
+        direction = DrivingDirection.towards_destination
+        return
 
+    elif (direction == DrivingDirection.away_from_destination) and (y == 1 and x == -1):
+        if blocked_state['left']:
+            turn('right')
+            turn('right')
+            print("Turning 180")
+            direction = DrivingDirection.towards_destination
+            return
+        else:
+            turn('left')
+            direction = DrivingDirection.right
+            print("Turning left")
+            move_forward()
+            return
+
+    elif (direction == DrivingDirection.away_from_destination) and (y == 1 and x == 1):
+        if blocked_state['right']:
+            turn('right')
+            turn('right')
+            print("Turning 180")
+            direction = DrivingDirection.towards_destination
+            return
+        else:
+            turn('right')
+            direction = DrivingDirection.left
+            print("Turning right")
+            move_forward()
+            return
+
+    elif (direction == DrivingDirection.away_from_destination) and (y == 0 and x == -1):
+        if blocked_state['left']:
+            if not blocked_state['centre']:
+                direction = DrivingDirection.away_from_destination
+                return
+
+            elif not blocked_state['right']:
+                turn('right')
+                direction = DrivingDirection.left
+                print("Turning right")
+                return
+
+            else:
+                turn('right')
+                turn('right')
+                print("Turning 180")
+                direction = DrivingDirection.towards_destination
+                return
+        else:
+            turn('left')
+            direction = DrivingDirection.right
+            print("Turning left")
+            move_forward()
+            return
+
+    elif (direction == DrivingDirection.away_from_destination) and (y == 0 and x == 1):
+        if blocked_state['right']:
+            if not blocked_state['centre']:
+                direction = DrivingDirection.away_from_destination
+                return
+
+            elif not blocked_state['left']:
+                turn('left')
+                direction = DrivingDirection.right
+                print("Turning left")
+                return
+
+            else:
+                turn('right')
+                turn('right')
+                print("Turning 180")
+                direction = DrivingDirection.towards_destination
+                return
+        else:
+            turn('right')
+            direction = DrivingDirection.left
+            print("Turning right")
+            move_forward()
+            return
+
+    elif (direction == DrivingDirection.away_from_destination) and (y == 0 and x == 0):
+        return
+    elif (direction == DrivingDirection.away_from_destination) and (y == -1 and x == 0):
+        if blocked_state['centre']:
+            if not blocked_state['right']:
+                turn('right')
+                direction = DrivingDirection.left
+                print("Turning right")
+                return
+
+            elif not blocked_state['left']:
+                turn('left')
+                direction = DrivingDirection.right
+                print("Turning left")
+                return
+
+            else:
+                turn('right')
+                turn('right')
+                print("Turning 180")
+                direction = DrivingDirection.towards_destination
+                return
+        else:
+            move_forward()
+            return
+
+    elif (direction == DrivingDirection.away_from_destination) and (y == -1 and x == -1):
+        if blocked_state['centre']:
+            if not blocked_state['right']:
+                turn('right')
+                direction = DrivingDirection.left
+                print("Turning right")
+                return
+
+            elif not blocked_state['left']:
+                turn('left')
+                direction = DrivingDirection.right
+                print("Turning left")
+                return
+
+            else:
+                turn('right')
+                turn('right')
+                print("Turning 180")
+                direction = DrivingDirection.towards_destination
+                return
+        else:
+            move_forward()
+            return
+
+    elif (direction == DrivingDirection.away_from_destination) and (y == -1 and x == 1):
+        if blocked_state['centre']:
+            if not blocked_state['left']:
+                turn('left')
+                direction = DrivingDirection.right
+                print("Turning left")
+                return
+
+            elif not blocked_state['right']:
+                turn('right')
+                direction = DrivingDirection.left
+                print("Turning right")
+                return
+
+            else:
+                turn('right')
+                turn('right')
+                print("Turning 180")
+                direction = DrivingDirection.towards_destination
+                return
+        else:
+            move_forward()
+            return
+########################################################### END ##################################################################
 def updateMap(blocked_state):
     global direction
     global map
     global car_position
 
     if map[car_position[0], car_position[1]] != 1:
-        map[car_position[0], car_position[1]] = 0
+        map[car_position[0], car_position[1]] = 8
 
     # Inital filter on driving direction
     if direction == DrivingDirection.towards_destination:
@@ -915,9 +1124,8 @@ def updateMap(blocked_state):
 
 def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
         enable_edgetpu: bool, stationary_run: bool,
-        obj_det_thresh: float, _driver: str, 
+        obj_det_thresh: float, _driver: str,
         destX: int, destY: int, startX: int, startY: int) -> None:
-
     print("Sys max size ", sys.maxsize)
     np.set_printoptions(threshold=sys.maxsize)
 
@@ -929,13 +1137,32 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
     global car_position
     car_position[:] = (startX,startY)
     destination = (destX,destY)
-
     # Initate dictionary to hold detected obstacle location in front of car
     blocked_state = {
         'left': False,
         'centre': False,
         'right': False
     }
+    #starting point - this needs to update as the car moves
+    start = (24,10)
+    print(f"Starting point is {start}")
+    #Asking user to enter the coordinates for the destination
+    x=int(input(f"Enter the x coordinate of the target between 0 and {array_shape[0]}\n"))
+    while (x>array_shape[0]) or (x<=0):
+        x=int(input(f"The number needs to be netween 0 and {array_shape[0]}. Please enter again\n"))
+
+    y=int(input(f"Now, enter the y coordinate of the target between 0 and {array_shape[0]}\n"))
+    while (y>array_shape[0]) or (y<=0):
+        y=int(input(f"The number needs to be netween 0 and array_shape[0]. Please enter again\n"))
+
+    #converting the x,y coordinates entered to work in the array
+    x_coord=x-1
+    y_coord=array_shape[0]-y
+
+    global target
+    #Target is set by the user - doesn't change while the car is driving
+    target = (y_coord,x_coord)
+    print(f"Target point is {target}")
 
     # Use multiprocessing manager to allow shared list between processes
     with mp.Manager() as manager:
@@ -995,9 +1222,11 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
                 # Update map
                 updateMap(blocked_state)
 
-                # Update route
                 new_car_position = (car_position[0],car_position[1])
-                route = a_star_algorithm(map, new_car_position, destination)
+                print(new_car_position)
+                print(target)
+                route = a_star_algorithm(map, new_car_position, target)
+                print(route)
                 if len(route) == 0:
                     print("########################")
                     print("##### WE MADE IT!! #####")
@@ -1014,8 +1243,6 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
                 if not stationary_run:
                     decide_on_action(blocked_state,route,new_car_position)
 
-                # print(f"routemap:\n{routemap}\n")
-                # print(f"map:\n{map}\n")
                 print("____________________________________________________")
 
         finally:
