@@ -8,10 +8,9 @@ import multiprocessing as mp
 import heapq
 from enum import Enum
 import heapq
-################################################## New ################################3
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure
-################################################## end ##############################
+
 # User modules
 disable_camera = False
 try:
@@ -33,7 +32,7 @@ class DrivingDirection (Enum):
 
 # Set speed of car
 speed = 5
-start = (24,10)
+starting_point = (24,10)
 # Set starting direction of car as toward destination
 direction = DrivingDirection.towards_destination
 
@@ -47,15 +46,13 @@ driver = None
 # Initialise array representing 20 * 20 occupany squares of approx 20cm
 # when 7 represents unmapped areas, 0 represents clear and 1 represents obstacle
 array_shape = (50, 50)
-fill_value = "*"
-map = np.full(array_shape, fill_value=1)
+fill_value = 7
+map = np.full(array_shape, fill_value)
 
 # Intialise car location in array
 car_position = [24, 10]
-#################################################### NEW - ADDED LIST TO STORE COORDINATES ##########################################
 x_coords = []
 y_coords = []
-############################################################ end ############################################################
 def route_map(route):
     global array_shape
     global fill_value
@@ -64,10 +61,6 @@ def route_map(route):
         x = route[i][0]
         y = route[i][1]
         route_map[x][y]=8
-    ############################################## NEW #############################################
-        x_coords.append(x)
-        y_coords.append(y)
-    ############################################# END #############################################
     return route_map
 
 def heuristic(a, b):
@@ -208,29 +201,23 @@ def check_scan(scan_list, blocked_state):
         blocked_state['right'] = False
     return blocked_state
 
-######################################################## NEW #################################################
 def print_map():
-    print("Map function")
-    fig, ax = plt.subplots(figsize=(25,25))
+    map_file_name = "map.png"
+    print(f"Saving map to {map_file_name}...")
+    global array_shape
+    fig, ax = plt.subplots(figsize=(50,50))
 
     ax.imshow(map, cmap=plt.get_cmap('gray'))
-    ax.scatter(start[1],start[0], marker = ".", color = "yellow", s = 200)
+    ax.scatter(starting_point[1],starting_point[0], marker = ".", color = "yellow", s = 200)
     ax.scatter(target[1],target[0], marker = ".", color = "blue", s = 200)
     ax.plot(y_coords,x_coords, color = "green")
 
-    # plt.show()
-    #print(map)
+    plt.savefig("map.png")
     print ("Done!")
- #################################################### END ####################################################
 
 # Decide on the action based on the blocked state and the direction of the car
 # in relation to the destination
 def decide_on_action(blocked_state, route, new_car_position):
-    ##########################################3 NEW ##########################################
-    # if not route:
-    #     print_map()
-    #     quit()
-    ############################################ END ###########################################
     print("Car position ", new_car_position)
     print("Going to point", route[-1])
 
@@ -875,7 +862,7 @@ def decide_on_action(blocked_state, route, new_car_position):
         else:
             move_forward()
             return
-################################################   NEW #####################################################################
+
     #DOWN
     if (direction == DrivingDirection.away_from_destination) and (y == 1 and x == 0):
         turn('right')
@@ -1035,7 +1022,7 @@ def decide_on_action(blocked_state, route, new_car_position):
         else:
             move_forward()
             return
-########################################################### END ##################################################################
+
 def updateMap(blocked_state):
     global direction
     global map
@@ -1135,8 +1122,6 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
 
     # Apply input params for starting position and destination
     global car_position
-    car_position[:] = (startX,startY)
-    destination = (destX,destY)
     # Initate dictionary to hold detected obstacle location in front of car
     blocked_state = {
         'left': False,
@@ -1144,24 +1129,32 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
         'right': False
     }
     #starting point - this needs to update as the car moves
-    start = (24,10)
-    print(f"Starting point is {start}")
+    if not startX:
+        startX=int(input(f"Enter the x coordinate of the starting point between 0 and {array_shape[0]}\n"))
+        while (startX>array_shape[0]) or (startX<=0):
+            startX=int(input(f"The number needs to be netween 0 and {array_shape[0]}. Please enter again\n"))
+    if not startY:
+        startY=int(input(f"Enter the y coordinate of the starting point between 0 and {array_shape[1]}\n"))
+        while (startY>array_shape[1]) or (startY<=0):
+            startY=int(input(f"The number needs to be netween 0 and {array_shape[1]}. Please enter again\n"))
+
+    car_position[:] = (startX,startY)
+    starting_point = (startX, startY)
+    print(f"Starting point is {starting_point}")
+
     #Asking user to enter the coordinates for the destination
-    x=int(input(f"Enter the x coordinate of the target between 0 and {array_shape[0]}\n"))
-    while (x>array_shape[0]) or (x<=0):
-        x=int(input(f"The number needs to be netween 0 and {array_shape[0]}. Please enter again\n"))
-
-    y=int(input(f"Now, enter the y coordinate of the target between 0 and {array_shape[0]}\n"))
-    while (y>array_shape[0]) or (y<=0):
-        y=int(input(f"The number needs to be netween 0 and array_shape[0]. Please enter again\n"))
-
-    #converting the x,y coordinates entered to work in the array
-    x_coord=x-1
-    y_coord=array_shape[0]-y
+    if not destX:
+        destX=int(input(f"Enter the x coordinate of the target between 0 and {array_shape[0]}\n"))
+        while (destX>array_shape[0]) or (destX<=0):
+            destX=int(input(f"The number needs to be netween 0 and {array_shape[0]}. Please enter again\n"))
+    if not destY:
+        destY=int(input(f"Enter the y coordinate of the target between 0 and {array_shape[1]}\n"))
+        while (destY>array_shape[1]) or (destY<=0):
+            destY=int(input(f"The number needs to be netween 0 and {array_shape[1]}. Please enter again\n"))
 
     global target
     #Target is set by the user - doesn't change while the car is driving
-    target = (y_coord,x_coord)
+    target = (destX,destY)
     print(f"Target point is {target}")
 
     # Use multiprocessing manager to allow shared list between processes
@@ -1223,8 +1216,8 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
                 updateMap(blocked_state)
 
                 new_car_position = (car_position[0],car_position[1])
-                print(new_car_position)
-                print(target)
+                x_coords.append(car_position[0])
+                y_coords.append(car_position[1])
                 route = a_star_algorithm(map, new_car_position, target)
                 print(route)
                 if len(route) == 0:
@@ -1232,12 +1225,13 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
                     print("##### WE MADE IT!! #####")
                     print("########################")
                     fc.stop()
+                    print_map()
                     break
                 routemap=route_map(route)
 
                 print("____________________________________________________")
                 print(f"route (distance {len(route)}):\n{route}")
-                print(f"pos: {car_position} dest: {destination}")
+                print(f"pos: {car_position} dest: {target}")
                 print(f"blocked: {[direction if state else '' for direction, state in blocked_state.items()]}")
 
                 if not stationary_run:
@@ -1311,25 +1305,25 @@ if __name__ == "__main__":
         help='X coordinate of destination',
         required=False,
         type=int,
-        default=18)
+        default=None)
     parser.add_argument(
         '--destY',
         help='X coordinate of destination',
         required=False,
         type=int,
-        default=10)
+        default=None)
     parser.add_argument(
         '--startX',
         help='X coordinate of starting position',
         required=False,
         type=int,
-        default=24)
+        default=None)
     parser.add_argument(
         '--startY',
         help='X coordinate of destination',
         required=False,
         type=int,
-        default=10)
+        default=None)
     args = parser.parse_args()
 
     print("If you want to quit, please press q")

@@ -4,3 +4,4 @@ dist/*
 picar_4wd.egg-info/*
 data/config
 *.pyc
+*.png
