@@ -207,9 +207,9 @@ def print_map():
     global array_shape
     fig, ax = plt.subplots(figsize=(50,50))
 
-    ax.imshow(map, cmap=plt.get_cmap('gray'))
-    ax.scatter(starting_point[1],starting_point[0], marker = ".", color = "yellow", s = 200)
-    ax.scatter(target[1],target[0], marker = ".", color = "blue", s = 200)
+    ax.imshow(map, cmap=plt.get_cmap('tab20'))
+    ax.scatter(starting_point[1],starting_point[0], marker = ".", color = "red", s = 300)
+    ax.scatter(target[1],target[0], marker = ".", color = "blue", s = 300)
     ax.plot(y_coords,x_coords, color = "green")
 
     plt.savefig("map.png")
