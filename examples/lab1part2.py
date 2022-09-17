@@ -43,8 +43,9 @@ forward_timer = 0
 # Global for storing individual car tuning
 driver = None
 
-# Initialise array representing 20 * 20 occupany squares of approx 20cm
-# when 7 represents unmapped areas, 0 represents clear and 1 represents obstacle
+# Initialise array representing 50 x 50 squares or cells of approx 16cm, where 
+# the number 7 represents unmapped cells, 0 represents clear cells  and 1 indicates 
+# there is an obstacle in the cells
 array_shape = (50, 50)
 fill_value = 7
 map = np.full(array_shape, fill_value)
@@ -53,6 +54,8 @@ map = np.full(array_shape, fill_value)
 car_position = [24, 10]
 x_coords = []
 y_coords = []
+
+
 def route_map(route):
     global array_shape
     global fill_value
@@ -145,25 +148,31 @@ def turn(turning_direction):
 
     # Stop turn
     fc.stop()
-    #updatePositionTurning(turning_direction)
 
     # Reset distance counter as this is used to ensure car moves a certain distance
     # forward after each turn before attempting a turn towards destination
     distance_counter = 0
     return
 
+# Update the position of the car in the map when moving forward.
+# Takes distance as an input which will typically be 1 unit in the map.
 def updatePositionMovingForward(distance):
     global direction
     global car_position
+
+    # Move car positiion upwards in the map
     if direction == DrivingDirection.towards_destination:
         car_position[0] = car_position[0] - distance
 
+    # Move car to the right in the map
     elif direction == DrivingDirection.right:
         car_position[1] = car_position[1] + distance
 
+    # Move care to the left in the map
     elif direction == DrivingDirection.left:
         car_position[1] = car_position[1] - distance
 
+    # Move car downwards in the map
     else:
         car_position[0] = car_position[0] + distance
 
@@ -171,12 +180,13 @@ def updatePositionMovingForward(distance):
 def move_forward():
     global distance_counter
     fc.forward(speed)
-    # Sleep while car travels 5 cm
-    #time.sleep(0.16)
+
+    # Increment distance counter as car has moved forward 1 cell in the map
     distance_counter += 1
-    print("Distance counter ", distance_counter)
-    # Car moves 16cm forward each time
+
+    # Update car position in map
     updatePositionMovingForward(1)
+
     return
 
 # Check ultrasonic scan. Assessing left, centre and right parts of scan for obstacles
@@ -184,19 +194,16 @@ def move_forward():
 def check_scan(scan_list, blocked_state):
     if scan_list[0:3] != [ 2, 2, 2]:
         blocked_state['left'] = True
-        #print("Blocked left")
     else:
         blocked_state['left'] = False
 
     if scan_list[3:7] != [2, 2, 2, 2]:
         blocked_state['centre'] = True
-        #print("Blocked centre")
     else:
         blocked_state['centre'] = False
 
     if scan_list[7:10] != [2, 2, 2]:
         blocked_state['right'] = True
-        #print ("Blocked right")
     else:
         blocked_state['right'] = False
     return blocked_state
@@ -1023,19 +1030,32 @@ def decide_on_action(blocked_state, route, new_car_position):
             move_forward()
             return
 
+# Update the map with the latest information regarding cells in the matrix which
+# are clear or haved obstacles in them
 def updateMap(blocked_state):
     global direction
     global map
     global car_position
 
+    # Is the code below needed???
     if map[car_position[0], car_position[1]] != 1:
         map[car_position[0], car_position[1]] = 8
 
-    # Inital filter on driving direction
+    # Depending on the driving direction update the map correspondingly 
+    # according to the blocked state dictionary.
+
+    # If driving upwards in the matrix
     if direction == DrivingDirection.towards_destination:
+
         if blocked_state['left']:
+            # Mark cell left of the car has having an obstacle if that is detected.
             map[car_position[0],car_position[1]-1] = 1
         else:
+            #Only mark the position as clear if it has not already been marked
+            # as having an obstacle.  As the squares are 16x16cm it is possible
+            # that different readings are received for the same square. If there 
+            # a single scan indicating an obstacle the cell will be marked as such 
+            # irrespective of subsequent readings.
             if map[car_position[0],car_position[1]-1] != 1:
                 map[car_position[0],car_position[1]-1] = 0
 
@@ -1051,6 +1071,7 @@ def updateMap(blocked_state):
             if map[car_position[0], car_position[1]+1] != 1:
                 map[car_position[0], car_position[1]+1] = 0
 
+    # If driving to the right in the matrix
     elif direction == DrivingDirection.right:
         if blocked_state['left']:
             map[car_position[0]-1,car_position[1]] = 1
@@ -1070,6 +1091,7 @@ def updateMap(blocked_state):
             if map[car_position[0]+1, car_position[1]] != 1:
                 map[car_position[0]+1, car_position[1]] = 0
 
+    # If driving to the left in the matrix
     elif direction == DrivingDirection.left:
         if blocked_state['left']:
             map[car_position[0]+1,car_position[1]] = 1
@@ -1089,7 +1111,8 @@ def updateMap(blocked_state):
             if map[car_position[0]-1, car_position[1]] != 1:
                 map[car_position[0]-1, car_position[1]] = 0
 
-    else: # If direction away frpm destination
+    # If driving downwards in the matrix
+    else: 
         if blocked_state['left']:
             map[car_position[0],car_position[1]+1] = 1
         else:
@@ -1327,7 +1350,6 @@ if __name__ == "__main__":
         default=None)
     args = parser.parse_args()
 
-    print("If you want to quit, please press q")
 
     try:
         main(
