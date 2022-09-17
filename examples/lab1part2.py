@@ -201,14 +201,14 @@ def check_scan(scan_list, blocked_state):
         blocked_state['right'] = False
     return blocked_state
 
-def print_map():
+def print_map(x,y):
     map_file_name = "map.png"
     print(f"Saving map to {map_file_name}...")
     global array_shape
     fig, ax = plt.subplots(figsize=(50,50))
 
     ax.imshow(map, cmap=plt.get_cmap('tab20'))
-    ax.scatter(starting_point[1],starting_point[0], marker = ".", color = "red", s = 300)
+    ax.scatter(x,y, marker = ".", color = "red", s = 300)
     ax.scatter(target[1],target[0], marker = ".", color = "blue", s = 300)
     ax.plot(y_coords,x_coords, color = "green")
 
@@ -1225,7 +1225,7 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
                     print("##### WE MADE IT!! #####")
                     print("########################")
                     fc.stop()
-                    print_map()
+                    print_map(starting_point[1],starting_point[0])
                     break
                 routemap=route_map(route)
 
