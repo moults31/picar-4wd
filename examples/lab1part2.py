@@ -1196,6 +1196,7 @@ def main(model: str, camera_id: int, width: int, height: int, num_threads: int,
                     if 'stop sign' not in already_serviced_objects:
                         already_serviced_objects.append('stop sign')
                         print("Pausing for 5 sec...")
+                        fc.stop()
                         time.sleep(5)
                         print("Continuing")
                 else:
