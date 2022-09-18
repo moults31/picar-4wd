@@ -1037,7 +1037,7 @@ def updateMap(blocked_state):
     global map
     global car_position
 
-    # Is the code below needed???
+    # Updates car position in the map
     if map[car_position[0], car_position[1]] != 1:
         map[car_position[0], car_position[1]] = 8
 
